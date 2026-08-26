@@ -8,6 +8,7 @@ import {
   type WebModel,
   type WebRecord,
 } from './data.ts';
+import { PDF_SCRIPT } from './pdf.ts';
 import { SCRIPT } from './script.ts';
 import { STYLES } from './styles.ts';
 
@@ -68,6 +69,7 @@ ${renderReader(model)}
 </div>
 <script>
 window.__ADR = ${jsonScript(toClientModel(model))};
+${PDF_SCRIPT}
 ${SCRIPT}
 </script>`;
 }
@@ -138,7 +140,7 @@ ${renderOverview(model)}
   </div>
 </main>
 <template id="tpl-records">
-${model.records.map(renderRecord).join('\n')}
+${model.records.map((record) => renderRecord(record, model.scope)).join('\n')}
 </template>`;
 }
 
@@ -219,7 +221,42 @@ function renderOverview(model: WebModel): string {
 
 /* --------------------------------------------------------------------- record */
 
-function renderRecord(record: WebRecord): string {
+/**
+ * The share controls.
+ *
+ * Sending someone a decision is a different act from reading one, so these sit
+ * with the record's identity block rather than in the rail: what you are sharing
+ * is *this* record.
+ *
+ * The last one writes a real file in one click. It deliberately does not go
+ * through the print dialog: that dialog is aimed at a printer, buries "Save as
+ * PDF" in a destination menu, and cannot be scripted. The page carries its own
+ * PDF writer instead — see pdf.ts for why that costs less than it sounds.
+ *
+ * There is still no "download the markdown" button: that would hand you a file
+ * you already have, by way of a file manager. Copy does the same job in one step.
+ *
+ * The status line is a live region so the outcome is announced, rather than only
+ * shown by the button changing colour.
+ */
+function renderActions(): string {
+  const buttons = [
+    ['link', 'Copy link'],
+    ['markdown', 'Copy markdown'],
+    ['citation', 'Copy citation'],
+  ]
+    .map(
+      ([kind, label]) => `<button class="act" type="button" data-copy="${kind}">${label}</button>`,
+    )
+    .join('');
+
+  return `<div class="rec-actions">
+        ${buttons}<button class="act" type="button" data-pdf>Download PDF</button>
+        <span class="act-status" role="status" aria-live="polite" data-copy-status></span>
+      </div>`;
+}
+
+function renderRecord(record: WebRecord, scope: string): string {
   const meta = [
     `<span class="state ${record.status}"><span class="dot ${record.status}"></span>${escapeHtml(record.statusLabel)}</span>`,
     record.dateLong ? `<span>${escapeHtml(record.dateLong)}</span>` : '',
@@ -264,12 +301,14 @@ function renderRecord(record: WebRecord): string {
 
   return `<section data-slug="${record.slug}">
       <button class="back" type="button" data-back>← All records</button>
+      <p class="print-head">${escapeHtml(scope)}</p>
       <div class="rec-head">
         <p class="eyebrow"><span class="rec-no">ADR ${escapeHtml(record.numberLabel)}</span><span>${escapeHtml(record.group)}</span></p>
         <h2 class="rec-title">${escapeHtml(record.title)}</h2>
         <div class="rec-meta">
         ${meta}
         </div>
+      ${renderActions()}
       </div>
       ${notices.join('\n      ')}
       ${

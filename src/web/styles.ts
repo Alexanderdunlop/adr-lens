@@ -438,6 +438,48 @@ body {
 .state.superseded { color: var(--superseded); }
 .state.unknown    { color: var(--faint); }
 
+/* Share controls: available, never the loudest thing in the header. */
+.rec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
+}
+
+.act {
+  font: inherit;
+  font-size: var(--step--1);
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.act:hover { border-color: var(--faint); color: var(--ink); background: var(--surface); }
+.act:active { background: var(--surface-2); }
+
+.act[data-copied="true"] {
+  border-color: var(--accepted);
+  color: var(--accepted);
+  background: color-mix(in srgb, var(--accepted) 8%, var(--surface));
+}
+
+.act[data-copied="failed"] {
+  border-color: var(--rejected);
+  color: var(--rejected);
+}
+
+.act-status {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+/* A letterhead for the printed sheet; the screen already says what this is. */
+.print-head { display: none; }
+
 /* The at-a-glance block: the decision, before any prose. */
 .glance {
   margin: 2rem 0 0;
@@ -900,5 +942,109 @@ body {
 @media (min-width: 60.0625rem) {
   .app[data-view] .rail, .app[data-view] .reader { display: flex; }
   .reader { display: block; }
+}
+
+/* -------------------------------------------------------------------- print */
+
+@page { margin: 18mm 16mm; }
+
+/*
+ * Printing is not "the page, on paper". It is one decision, sent to someone who
+ * will read it away from the page: a reviewer, an auditor, someone on a call.
+ * So the register, the search, and the share controls all go; the state and the
+ * date stay at the top where the reader's first question is answered; every
+ * external url is spelled out, because a printed link is dead; and nothing is
+ * allowed to break in a place that costs the reader a fact — a table row split
+ * across a page boundary, or a heading stranded at the foot of one.
+ */
+@media print {
+  /*
+   * Paper is white and ink is black, whatever the reader was looking at. Listed
+   * against the explicit theme selectors too, or a reader with the dark toggle
+   * on would print a black page.
+   */
+  :root, :root[data-theme="light"], :root[data-theme="dark"] {
+    color-scheme: light;
+    --paper: #fff; --surface: #fff; --surface-2: #fff;
+    --ink: #000; --ink-soft: #111; --muted: #444; --faint: #666;
+    --rule: #999; --rule-soft: #ccc;
+    --accent: #000; --accent-ink: #000; --accent-wash: #fff;
+    --accepted: #000; --proposed: #000; --rejected: #000;
+    --deprecated: #000; --superseded: #555;
+  }
+
+  body { background: #fff; color: #000; font-size: 10.5pt; }
+
+  .rail, .back, .rec-actions { display: none !important; }
+
+  .app { display: block; min-height: 0; }
+
+  /*
+   * Paper is narrower than the one-column breakpoint — A4 is about 794px against
+   * 960px — so the mobile rules are live while printing, and those rules have the
+   * two halves take turns: whichever one is not being viewed is hidden. On paper
+   * there are no turns. Written at the same specificity as the rules being
+   * countered, and later in the sheet, so this wins in both views; without it,
+   * printing the overview produces a blank sheet.
+   */
+  .app[data-view] .rail { display: none; }
+  .app[data-view] .reader { display: block; }
+
+  .reader-inner, .overview .reader-inner { max-width: none; margin: 0; padding: 0; }
+
+  .print-head {
+    display: block;
+    margin: 0 0 1.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 0.5pt solid var(--rule);
+    font-family: var(--mono);
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .rec-title { font-size: 20pt; }
+  .prose { margin-top: 1.5rem; font-size: 10.5pt; }
+
+  /* State reads as form on paper, where backgrounds are usually dropped. */
+  .dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+  .glance { border: 0; border-left: 2pt solid #000; border-radius: 0; padding: 0 0 0 0.85rem; }
+  /* A hairline box, not a tint: the reader may have background graphics off,
+     and the notice has to survive that — it is the one thing on the sheet that
+     says whether the decision still holds. */
+  .notice, .notice.replaced, .notice.partial {
+    border: 0.5pt solid #000;
+    background: none;
+    color: #000;
+  }
+
+  /* A printed link cannot be followed, so name its destination. Internal
+     cross-references are excluded: an in-page route spelled out as a url tells
+     the reader nothing the link text — "ADR-0065" — has not already told them. */
+  a.ext-link, .prose a { color: #000; }
+  a.ext-link::after {
+    content: " <" attr(href) ">";
+    font-family: var(--mono);
+    font-size: 0.8em;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  /* Nothing scrolls on paper, so anything that scrolled must now wrap or fit. */
+  .table-scroll, .code-block pre, .diagram { overflow: visible; }
+  .prose thead th { white-space: normal; }
+  .code-block code { white-space: pre-wrap; word-break: break-word; }
+
+  .rec-head, .code-lang { break-after: avoid; }
+  .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 { break-after: avoid; break-inside: avoid; }
+  .prose tr, .prose thead, .prose li, .glance, .notice, .rec-meta, .rel { break-inside: avoid; }
+  /* Repeat the header when a long table does cross a page. */
+  .prose thead { display: table-header-group; }
+  .prose p { orphans: 3; widows: 3; }
+
+  .relations { margin-top: 2rem; break-before: auto; }
+  .rel { cursor: default; }
 }
 `.trim();
