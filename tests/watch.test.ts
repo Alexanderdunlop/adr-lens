@@ -105,11 +105,17 @@ describe('createStatusLine', () => {
   });
 
   it('truncates to the terminal width so the line never wraps', () => {
+    // Return to column zero, then erase the line. Written as a string rather
+    // than a regex so the escape stays readable and lint-clean.
+    const RESET = '\r\u001B[2K';
+
     const written: string[] = [];
     const line = createStatusLine({ write: (t) => written.push(t), isTTY: true, columns: 20 });
     line.update('x'.repeat(200));
-    const painted = written[0]!.replace(/^\r\[2K/, '');
-    expect(painted.length).toBeLessThanOrEqual(19);
+
+    expect(written[0]!.startsWith(RESET)).toBe(true);
+    const painted = written[0]!.slice(RESET.length);
+    expect(painted).toHaveLength(19);
     expect(painted.endsWith('…')).toBe(true);
   });
 });
