@@ -43,7 +43,10 @@
     "check-types": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "prepublishOnly": "pnpm run check-types && pnpm run test && pnpm run build"
+    "prepublishOnly": "pnpm run check-types && pnpm run test && pnpm run build",
+    "changeset": "changeset",
+    "version-packages": "changeset version && pnpm install --lockfile-only",
+    "release": "changeset publish"
   },
   "dependencies": {
     "ink": "^6.4.1",
@@ -53,6 +56,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.17",
     "linkedom": "^0.18.13",
@@ -64,5 +69,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "packageManager": "pnpm@10.32.1"
 }
