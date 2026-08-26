@@ -8,7 +8,10 @@ const adr = (n: string, title: string, body: string, status = 'Accepted'): strin
 function fixture() {
   return corpusOf(
     ['0002-retry.md', adr('2', 'Retry conflicting writes', 'We retry the transaction.')],
-    ['0034-archive.md', adr('34', 'Dead-letter queue as a passive archive', 'Every error escapes the handler.')],
+    [
+      '0034-archive.md',
+      adr('34', 'Dead-letter queue as a passive archive', 'Every error escapes the handler.'),
+    ],
     [
       '0065-gate.md',
       adr('65', 'Single-store idempotency gate', 'A retry is safe because the id is stable.'),
