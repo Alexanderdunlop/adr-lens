@@ -37,6 +37,24 @@ export const SCRIPT = String.raw`
     try { window.sessionStorage.setItem('adr-lens:sort', value); } catch (e) {}
   }
 
+  // Scroll position per record, so a reload — which is how you see a rebuild
+  // under --watch — lands you back where you were reading.
+  function saveScroll() {
+    if (!state.slug) return;
+    try {
+      window.sessionStorage.setItem('adr-lens:scroll:' + state.slug, String(window.scrollY || 0));
+    } catch (e) {}
+  }
+
+  function savedScroll(slug) {
+    try {
+      var v = window.sessionStorage.getItem('adr-lens:scroll:' + slug);
+      return v === null ? 0 : Number(v) || 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   /* ------------------------------------------------------------- filtering */
 
   function matches(record) {
@@ -146,8 +164,18 @@ export const SCRIPT = String.raw`
     }
 
     readerInner.parentElement.scrollTop = 0;
-    window.scrollTo(0, 0);
+    if (firstShow && slug) {
+      var y = savedScroll(slug);
+      // Content is in the DOM but not yet laid out on the first paint.
+      if (y > 0) requestAnimationFrame(function () { window.scrollTo(0, y); });
+      else window.scrollTo(0, 0);
+    } else {
+      window.scrollTo(0, 0);
+    }
+    firstShow = false;
   }
+
+  var firstShow = true;
 
   function cssEscape(value) {
     return String(value).replace(/["\\]/g, '\\$&');
@@ -177,6 +205,12 @@ export const SCRIPT = String.raw`
   window.addEventListener('hashchange', function () {
     show(fromHash());
   });
+
+  var scrollTimer = null;
+  window.addEventListener('scroll', function () {
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(saveScroll, 120);
+  }, { passive: true });
 
   /* ----------------------------------------------------------------- events */
 

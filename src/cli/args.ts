@@ -34,6 +34,8 @@ export interface Flags {
   scope?: string;
   /** Open the generated page in the default browser. */
   open: boolean;
+  /** Rebuild the page whenever a record changes. */
+  watch: boolean;
 }
 
 const STATUSES: readonly Status[] = [
@@ -69,6 +71,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     help: false,
     version: false,
     open: false,
+    watch: false,
   };
 
   const operands: string[] = [];
@@ -176,6 +179,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case '--open':
         flags.open = true;
+        break;
+      case '-W':
+      case '--watch':
+        flags.watch = true;
         break;
       case '--scope':
       case '--title':

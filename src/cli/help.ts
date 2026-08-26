@@ -34,6 +34,7 @@ ${theme.h2('Output')}
       --top <n>        How many entries per section (map).
   -o, --out <path>     Output file (web). Default: <scope>-decisions.html.
       --open           Open the generated page in your browser (web).
+  -W, --watch          Rebuild the page whenever a record changes (web).
       --scope <name>   Override the page's title (web). Default: directory name.
   -a, --all            Include informational findings (lint).
       --json           Machine-readable output.
@@ -54,6 +55,9 @@ ${theme.h2('Examples')}
 
   ${theme.dim('# A readable web page for the whole corpus')}
   adr-lens web --open
+
+  ${theme.dim('# Keep it open while writing a decision')}
+  adr-lens web --watch --open
 
   ${theme.dim('# Audit before a review')}
   adr-lens lint --all
