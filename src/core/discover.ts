@@ -7,7 +7,7 @@ import type { AdrDir } from './types.ts';
  * Directory names that conventionally hold decision records. `decisions` and
  * `architecture-decisions` show up as often as the adr-tools default in practice.
  */
-const ADR_DIR_NAMES = new Set([
+export const ADR_DIR_NAMES: ReadonlySet<string> = new Set([
   'adr',
   'adrs',
   'decisions',
@@ -50,6 +50,25 @@ const NON_ADR_FILES = new Set([
 export function isAdrFile(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.endsWith('.md') && !NON_ADR_FILES.has(lower);
+}
+
+/**
+ * The same judgement as `isAdrFile`, made from a path alone — for trees that are
+ * not on disk, such as a git revision. `known` carries directories the caller has
+ * already accepted (the ones the current checkout loaded from), so a corpus kept
+ * somewhere unconventional still diffs against its own history.
+ *
+ * Paths are slash-separated and relative to the tree root, as git reports them.
+ */
+export function isAdrPath(path: string, known: ReadonlySet<string> = new Set()): boolean {
+  const parts = path.split('/');
+  const name = parts[parts.length - 1];
+  if (name === undefined || !isAdrFile(name)) return false;
+
+  if (known.has(parts.slice(0, -1).join('/'))) return true;
+
+  const parent = parts[parts.length - 2];
+  return parent !== undefined && ADR_DIR_NAMES.has(parent.toLowerCase());
 }
 
 /**
