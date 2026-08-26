@@ -10,7 +10,7 @@ import {
 import type { AdrNode, Relation } from '../core/types.ts';
 import { parseInline, truncateToWidth, visibleWidth, wrapSpans } from '../render/inline.ts';
 import { renderMarkdown } from '../render/markdown.ts';
-import { statusBadge, theme } from '../render/theme.ts';
+import { paintAll, statusBadge, theme } from '../render/theme.ts';
 import type { CommandContext } from './context.ts';
 
 export interface ShowOptions {
@@ -37,7 +37,7 @@ export function renderShow(
   if (decision) {
     // The lead paragraph is the whole point of the tool: one sentence, before any
     // context, answering "what was decided".
-    out.push(...wrapSpans([{ text: decision, paint: theme.bold }], width, '  '));
+    out.push(...wrapSpans([{ text: decision }], width, '  ', paintAll(theme.bold)));
     out.push('');
   }
 
@@ -73,13 +73,10 @@ function renderHeader(context: CommandContext, adr: AdrNode): string[] {
 
   out.push(
     ...wrapSpans(
-      [
-        {
-          text: `${adr.numberLabel ? `ADR ${adr.numberLabel}  ` : ''}${adr.title}`,
-          paint: theme.h1,
-        },
-      ],
+      [{ text: `${adr.numberLabel ? `ADR ${adr.numberLabel}  ` : ''}${adr.title}` }],
       width,
+      '',
+      paintAll(theme.h1),
     ),
   );
   out.push(theme.rule('═'.repeat(Math.min(width, visibleWidth(heading)))));
@@ -101,11 +98,11 @@ function renderHeader(context: CommandContext, adr: AdrNode): string[] {
   // holds real information the badge throws away.
   if (adr.statusRaw && adr.statusRaw.length > 24) {
     out.push('');
-    const spans = parseInline(adr.statusRaw).map((span) => ({
-      ...span,
-      paint: span.href ? theme.link : theme.meta,
-    }));
-    out.push(...wrapSpans(spans, width, '  '));
+    out.push(
+      ...wrapSpans(parseInline(adr.statusRaw), width, '  ', (span) =>
+        span.href ? theme.link : theme.meta,
+      ),
+    );
   }
 
   const current = currentVersion(adr, context.corpus.byId);

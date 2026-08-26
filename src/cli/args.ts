@@ -28,6 +28,10 @@ export interface Flags {
   top?: number;
   help: boolean;
   version: boolean;
+  /** Output path for `web`. */
+  out?: string;
+  /** Open the generated page in the default browser. */
+  open: boolean;
 }
 
 const STATUSES: readonly Status[] = [
@@ -41,7 +45,7 @@ const STATUSES: readonly Status[] = [
 
 const SORTS: readonly SortKey[] = ['number', 'influence', 'date', 'title', 'length'];
 
-const KNOWN_COMMANDS = new Set(['list', 'show', 'lint', 'map', 'browse', 'search', 'help']);
+const KNOWN_COMMANDS = new Set(['list', 'show', 'lint', 'map', 'browse', 'search', 'web', 'help']);
 
 export class ArgError extends Error {}
 
@@ -62,6 +66,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     summary: false,
     help: false,
     version: false,
+    open: false,
   };
 
   const operands: string[] = [];
@@ -162,6 +167,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case '--summary':
         flags.summary = true;
+        break;
+      case '-o':
+      case '--out':
+        flags.out = takeValue();
+        break;
+      case '--open':
+        flags.open = true;
         break;
       case '--section':
       case '--sections':

@@ -10,8 +10,9 @@ need before touching the code.
 `adr-lens` reads a directory of ADRs and answers the questions you actually have.
 
 ```
-adr-lens map                # where do I start?
-adr-lens list --live        # what is currently true?
+adr-lens web --open        # a readable web page for the whole corpus
+adr-lens map               # where do I start?
+adr-lens list --live       # what is currently true?
 adr-lens show 65           # read one, with its citations
 adr-lens browse            # explore interactively
 adr-lens lint              # what is broken or stale?
@@ -55,6 +56,33 @@ by`, and the pattern where a status names what died and adds that the rest
 "remains in force". Relations are mirrored, so only one side has to say it.
 
 ## Commands
+
+### `web` — the readable page
+
+Writes the whole corpus as **one self-contained HTML file**: no build step, no
+server, no external requests. Open it from disk, commit it, or publish it.
+
+```sh
+adr-lens web --open                 # write <scope>-decisions.html and open it
+adr-lens web -o docs/decisions.html
+adr-lens web -C ~/code --open       # every repo under a directory, grouped
+```
+
+The page has two halves:
+
+- **The register** — every record as one row: number, status, title, and the
+  one-sentence decision. Type to filter across titles, decisions, and body text;
+  filter to *current only* or by status. `/` focuses the search, `j`/`k` step
+  through results.
+- **The reading view** — the decision stated once, up front, before any context.
+  Then the record itself: proper measure and line-height, tables that scroll in
+  their own container, mermaid diagrams drawn as diagrams, and cross-references
+  as links you can click. Replaced records say so at the top and point at what
+  replaced them; partly-replaced records say *that* instead, because they are
+  still in force.
+
+It adapts to light and dark, collapses to one column on a phone, and needs no
+network. A 100-record corpus is about 2 MB.
 
 ### `map` — where to start
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { relative } from 'node:path';
 import { ArgError, type Flags, parseArgs } from './cli/args.ts';
 import { renderHelp } from './cli/help.ts';
 import { createContext, filtered, type GlobalFlags, resolveOne } from './commands/context.ts';
@@ -6,6 +7,7 @@ import { lintCorpus, lintExitCode, renderLint } from './commands/lint.ts';
 import { renderList, summariseCorpus } from './commands/list.ts';
 import { mapToJson, renderMap } from './commands/map.ts';
 import { renderShow } from './commands/show.ts';
+import { defaultOutputName, writeSite } from './commands/web.ts';
 import { search } from './core/search.ts';
 import type { AdrNode } from './core/types.ts';
 import { theme } from './render/theme.ts';
@@ -58,6 +60,8 @@ async function main(argv: string[]): Promise<number> {
       return runMap(context, flags);
     case 'browse':
       return runBrowse(context, operands, flags);
+    case 'web':
+      return runWeb(context, flags);
     case 'search':
       return runSearch(context, operands, flags);
     default:
@@ -198,6 +202,30 @@ function runMap(context: Context, flags: Flags): number {
     return 0;
   }
   console.log(renderMap(context, flags.top ? { top: flags.top } : {}).join('\n'));
+  return 0;
+}
+
+async function runWeb(context: Context, flags: Flags): Promise<number> {
+  const out = flags.out ?? defaultOutputName(context.corpus, flags.root);
+  const result = await writeSite(context.corpus, flags.root, { out, now: context.now });
+
+  console.log(
+    `${theme.ok('\u2713')} ${relative(process.cwd(), result.path)}  ${theme.dim(
+      `${result.records} records · ${Math.round(result.bytes / 1024)} kB`,
+    )}`,
+  );
+
+  if (flags.open) {
+    // macOS `open`, Linux `xdg-open`, Windows `start` — spawn detached so the
+    // command returns immediately.
+    const opener =
+      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+    const { spawn } = await import('node:child_process');
+    spawn(opener, [result.path], { detached: true, stdio: 'ignore' }).unref();
+  } else {
+    console.log(theme.dim(`  open it with: open ${relative(process.cwd(), result.path)}`));
+  }
+
   return 0;
 }
 

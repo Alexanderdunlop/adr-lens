@@ -10,6 +10,7 @@ ${theme.h2('Commands')}
   ${theme.bold('list')} [query]      List records, one line each. The default command.
   ${theme.bold('show')} <ref>        Render one record: number, id fragment, or title substring.
   ${theme.bold('browse')} [query]    Interactive browser — list on the left, record on the right.
+  ${theme.bold('web')}               Write the whole corpus as one self-contained HTML page.
   ${theme.bold('map')}               Where to start: most-cited records, supersession chains, loose ends.
   ${theme.bold('lint')}              Audit the corpus for duplicates, broken links, and stale statuses.
   ${theme.bold('search')} <query>    Rank records by relevance to a query.
@@ -31,6 +32,8 @@ ${theme.h2('Output')}
       --summary        Header and decision line only (show).
       --sections <l>   Comma-separated section names to include (show).
       --top <n>        How many entries per section (map).
+  -o, --out <path>     Output file (web). Default: <scope>-decisions.html.
+      --open           Open the generated page in your browser (web).
   -a, --all            Include informational findings (lint).
       --json           Machine-readable output.
       --no-color       Disable colour.
@@ -47,6 +50,9 @@ ${theme.h2('Examples')}
 
   ${theme.dim('# Just the decision and consequences of everything about retries')}
   adr-lens search retry --sections decision,consequences
+
+  ${theme.dim('# A readable web page for the whole corpus')}
+  adr-lens web --open
 
   ${theme.dim('# Audit before a review')}
   adr-lens lint --all

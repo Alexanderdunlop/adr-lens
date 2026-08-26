@@ -51,6 +51,7 @@
     "@biomejs/biome": "^2.4.4",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.17",
+    "linkedom": "^0.18.13",
     "tsdown": "^0.16.6",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

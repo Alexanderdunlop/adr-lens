@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import type { Status } from '../core/types.ts';
+import type { Painter, Span } from './inline.ts';
 
 /**
  * A deliberately small palette. ADRs are dense prose, and the fastest way to make
@@ -31,6 +32,28 @@ export const theme = {
   ok: (s: string) => pc.green(s),
   highlight: (s: string) => pc.inverse(s),
 } as const;
+
+/**
+ * Map a span's semantic style to terminal colour. Code and links win over
+ * emphasis, because in ADR prose they carry the information — a bolded
+ * identifier is still an identifier.
+ */
+export const ansiPaint: Painter = (span: Span) => {
+  const style = span.style;
+
+  if (style?.code) return theme.code;
+  if (style?.image) return theme.dim;
+  if (span.href) return theme.link;
+  if (style?.strike) return theme.strike;
+  if (style?.bold) return theme.bold;
+  if (style?.italic) return theme.italic;
+  return undefined;
+};
+
+/** A painter that forces one style over everything, for callers with their own emphasis. */
+export function paintAll(paint: (text: string) => string): Painter {
+  return () => paint;
+}
 
 /** Colour and glyph for each lifecycle state. */
 export const STATUS_STYLE: Record<
