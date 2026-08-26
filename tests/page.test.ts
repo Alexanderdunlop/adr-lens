@@ -1,6 +1,7 @@
 import { parseHTML } from 'linkedom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildCorpus } from '../src/core/corpus.ts';
+import { buildModel, toClientModel } from '../src/web/data.ts';
 import { renderPage } from '../src/web/page.ts';
 import { parse } from './fixtures.ts';
 
@@ -135,7 +136,31 @@ describe('client payload', () => {
     expect(payload).not.toContain('bodyHtml');
     expect(payload).toContain('haystack');
   });
+
+  it('carries the markdown source, which the rendered body cannot reproduce', () => {
+    const model = clientModel();
+    const gate = model.records.find((r) => r.numberLabel === '0065')!;
+    expect(gate.source).toContain('# 65. Single-store idempotency gate');
+    expect(gate.source).toContain('Date: 2026-05-01');
+  });
+
+  it('carries a citation per record', () => {
+    const model = clientModel();
+    expect(model.records.find((r) => r.numberLabel === '0065')?.citation).toBe(
+      'ADR-0065 Single-store idempotency gate (accepted, 2026-05-01)',
+    );
+    expect(model.records.find((r) => r.numberLabel === '0054')?.citation).toBe(
+      'ADR-0054 Hashed invoice id (superseded, 2026-04-01)',
+    );
+  });
 });
+
+function clientModel(): {
+  records: Array<{ numberLabel: string; citation: string; source: string }>;
+} {
+  const payload = /window\.__ADR = (.+);\n/.exec(html)![1]!;
+  return JSON.parse(payload.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>'));
+}
 
 describe('register', () => {
   it('leaves the list to the client but ships the container', () => {
@@ -264,5 +289,116 @@ describe('a record', () => {
 
   it('gives every record a back control for the one-column layout', () => {
     expect(record('0002').querySelector('[data-back]')).not.toBeNull();
+  });
+
+  it('offers the three copies, and no markdown download', () => {
+    const actions = record('0002').querySelector('.rec-actions');
+    const kinds = [...(actions?.querySelectorAll('[data-copy]') ?? [])].map((el) =>
+      el.getAttribute('data-copy'),
+    );
+    expect(kinds).toEqual(['link', 'markdown', 'citation']);
+    // Downloading one record is the same as copying it, by way of a file manager.
+    expect(html).not.toContain('data-download');
+  });
+
+  /**
+   * Named for the outcome, and it really is a download: no print dialog, which
+   * is aimed at a printer and cannot be scripted.
+   */
+  it('names the export after the file it produces', () => {
+    const button = record('0002').querySelector('[data-pdf]');
+    expect(button?.textContent).toBe('Download PDF');
+    // Nothing on the record opens a print dialog.
+    expect(record('0002').querySelector('[data-print]')).toBeNull();
+  });
+
+  it('announces the copy outcome rather than only showing it', () => {
+    const live = record('0002').querySelector('[data-copy-status]');
+    expect(live?.getAttribute('role')).toBe('status');
+    expect(live?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('names the scope on the printed sheet, which has no rail to say it', () => {
+    expect(record('0002').querySelector('.print-head')?.textContent).toBe('billing-service');
+  });
+});
+
+describe('citations', () => {
+  const cite = (raw: string, name: string): string => {
+    const corpus = buildCorpus([parse(raw, name)]);
+    return toClientModel(buildModel(corpus, { scope: 'demo', now: NOW })).records[0]!.citation;
+  };
+
+  it('drops the date when the record has none', () => {
+    expect(cite('# 7. No date here\n\n## Status\n\nAccepted\n', '0007-x.md')).toBe(
+      'ADR-0007 No date here (accepted)',
+    );
+  });
+
+  it('drops an absent status rather than citing "unknown"', () => {
+    expect(cite('# 8. Silent on status\n\nDate: 2026-01-02\n', '0008-x.md')).toBe(
+      'ADR-0008 Silent on status (2026-01-02)',
+    );
+  });
+
+  it('falls back to the title alone when there is no number', () => {
+    expect(cite('# Unnumbered thought\n\n## Status\n\nProposed\n', 'thought.md')).toBe(
+      'Unnumbered thought (proposed)',
+    );
+  });
+});
+
+/**
+ * Printing is a real output format here, not a fallback, so the rules the issue
+ * called for are asserted rather than left to be noticed on paper.
+ */
+describe('print stylesheet', () => {
+  const css = (): string => doc.querySelector('style')?.textContent ?? '';
+
+  it('exists, and forces paper white even under the dark toggle', () => {
+    expect(css()).toContain('@media print');
+    const block = css().slice(css().indexOf('@media print'));
+    expect(block).toContain(':root[data-theme="dark"]');
+  });
+
+  it('drops the register and the share controls', () => {
+    const block = css().slice(css().indexOf('@media print'));
+    expect(block).toMatch(/\.rail,[^{]*\.rec-actions[^{]*{[^}]*display: none/);
+  });
+
+  /**
+   * A4 is about 794px wide against a 960px breakpoint, so the one-column rules
+   * are live while printing — and they have the two halves take turns, hiding
+   * whichever one is not in view. Printing the overview used to produce a blank
+   * sheet because of it. Countering those rules needs equal specificity and a
+   * later position: a bare `.reader` loses to `.app[data-view="register"]
+   * .reader` no matter where it sits.
+   */
+  it('prints the reading pane in both views, not just with a record open', () => {
+    const all = css();
+    const block = all.slice(all.indexOf('@media print'));
+
+    expect(block).toMatch(/\.app\[data-view\] \.reader\s*{[^}]*display: block/);
+    expect(block).toMatch(/\.app\[data-view\] \.rail\s*{[^}]*display: none/);
+    expect(all.indexOf('@media print')).toBeGreaterThan(all.indexOf('@media (max-width: 60rem)'));
+  });
+
+  it('spells out external urls, since a printed link is dead', () => {
+    const block = css().slice(css().indexOf('@media print'));
+    expect(block).toContain('a.ext-link::after');
+    expect(block).toContain('attr(href)');
+    // An in-page route printed as a url would tell the reader nothing.
+    expect(block).not.toContain('a.rec-link::after');
+  });
+
+  it('never splits a table row, and repeats the header when a table does break', () => {
+    const block = css().slice(css().indexOf('@media print'));
+    expect(block).toMatch(/\.prose tr[^{]*{[^}]*break-inside: avoid/);
+    expect(block).toContain('display: table-header-group');
+  });
+
+  it('wraps what used to scroll, so nothing is cut off at the paper edge', () => {
+    const block = css().slice(css().indexOf('@media print'));
+    expect(block).toMatch(/\.code-block code[^{]*{[^}]*white-space: pre-wrap/);
   });
 });

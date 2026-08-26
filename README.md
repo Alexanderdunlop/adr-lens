@@ -114,6 +114,38 @@ The page has two halves:
   replaced them; partly-replaced records say *that* instead, because they are
   still in force.
 
+**Sharing one decision.** Sending someone the whole page and asking them to find
+ADR-0009 in it does not work. Each record carries four ways to send just itself:
+
+| | |
+|---|---|
+| `Copy link` | the record's own URL — the hash route already identifies it |
+| `Copy markdown` | the record's source, for pasting into Slack, a ticket, or a review |
+| `Copy citation` | `ADR-0009 Single-store idempotency gate (accepted, 2026-04-18)` |
+| `Download PDF` | `adr-0009-single-store-idempotency-gate.pdf`, in one click |
+
+**The PDF.** One click, straight to a file — no print dialog, which is aimed at a
+printer and cannot be scripted. The page carries its own PDF writer, so this
+works offline, from `file://`, with no dependency and nothing to install.
+
+It is a real document, not a screenshot: the text is selectable and searchable,
+files are tens of kB, and it uses the PDF base-14 fonts, so nothing has to be
+embedded. Headings, lists, tables, code, and block quotes all come across.
+External URLs are spelled out in the text, because a link in a PDF someone was
+emailed is not necessarily clickable — in-page routes are not, since `ADR-0009`
+already says everything the route would. A table never splits a row and repeats
+its header across a page break; long code lines and URLs wrap rather than being
+cut at the paper edge. Every page is numbered and carries the service and the
+record number in its footer, which is the one thing paper needs that the screen
+does not. Mermaid diagrams come out as their source text.
+
+<kbd>⌘P</kbd> still works, and has its own stylesheet — the register and the
+controls drop away, and it comes out black-on-white even if you were reading in
+the dark theme. The overview prints too, as a one-page summary of the corpus.
+
+There is no "download markdown" button, deliberately: it would hand you a file
+you already have, by way of a file manager. `Copy markdown` does it in one step.
+
 It adapts to light and dark, collapses to one column on a phone, and needs no
 network. A 100-record corpus is about 2 MB.
 

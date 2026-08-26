@@ -27,6 +27,10 @@ export interface WebRecord {
   gist: string | null;
   /** Plain-text decision, for searching. */
   gistText: string | null;
+  /** `ADR-0009 Title (accepted, 2026-04-18)`, for a commit message or a ticket. */
+  citation: string;
+  /** The record exactly as written, for pasting somewhere that renders markdown. */
+  source: string;
   group: string;
   citedBy: number;
   bodyHtml: string;
@@ -227,6 +231,8 @@ function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>): Web
     words: adr.wordCount,
     gist: gistText ? renderInlineHtml(gistText) : null,
     gistText,
+    citation: citation(adr),
+    source: adr.raw,
     group: dirname(adr.id),
     citedBy: adr.inbound.length,
     bodyHtml,
@@ -237,6 +243,23 @@ function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>): Web
     relations: buildRelations(adr, corpus, slugs),
     haystack: buildHaystack(adr, gistText),
   };
+}
+
+/**
+ * How a decision gets named somewhere that is not this page — a commit message,
+ * a ticket, a review comment:
+ *
+ *     ADR-0009 Single-store idempotency gate (accepted, 2026-04-18)
+ *
+ * The normalised status is used rather than the raw line, because a citation
+ * wants one word and `statusRaw` is often a whole sentence. An unnumbered or
+ * undated record simply drops that part rather than citing an em dash.
+ */
+function citation(adr: AdrNode): string {
+  const head = adr.numberLabel ? `ADR-${adr.numberLabel} ${adr.title}` : adr.title;
+  const facts = [adr.status === 'unknown' ? null : adr.status, adr.date].filter(Boolean);
+
+  return facts.length > 0 ? `${head} (${facts.join(', ')})` : head;
 }
 
 const MONTHS = [
@@ -423,6 +446,11 @@ function buildHaystack(adr: AdrNode, gist: string | null): string {
  * The projection handed to the browser. The rendered body, relations, and status
  * prose all live in the page's markup already, so shipping them again as JSON
  * would double the file for nothing.
+ *
+ * `source` is the exception, and a deliberate one: "copy as markdown" cannot be
+ * satisfied from the rendered body, so the markdown has to travel. On the
+ * bundled example corpus it costs about 13 kB against an 88 kB page, and it
+ * compresses against the rendered body it duplicates — roughly 3 kB gzipped.
  */
 export interface ClientRecord {
   slug: string;
@@ -434,6 +462,8 @@ export interface ClientRecord {
   dateLabel: string;
   minutes: number;
   gistText: string | null;
+  citation: string;
+  source: string;
   replaced: boolean;
   haystack: string;
 }
@@ -466,6 +496,8 @@ export function toClientModel(model: WebModel): ClientModel {
       dateLabel: record.dateLabel,
       minutes: record.minutes,
       gistText: record.gistText,
+      citation: record.citation,
+      source: record.source,
       replaced: record.replacedBy !== null,
       haystack: record.haystack,
     })),

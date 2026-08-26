@@ -140,6 +140,10 @@ export const SCRIPT = String.raw`
   function show(slug) {
     state.slug = slug || null;
 
+    // The actions row is about to be replaced, so abandon any copy in flight
+    // rather than letting it report into the next record's live region.
+    settle();
+
     if (!slug || !bySlug[slug]) {
       readerInner.innerHTML = overviewHtml;
       readerInner.parentElement.classList.add('overview');
@@ -213,6 +217,161 @@ export const SCRIPT = String.raw`
     scrollTimer = setTimeout(saveScroll, 120);
   }, { passive: true });
 
+  /* ------------------------------------------------------------- sharing */
+
+  var COPY_MESSAGES = {
+    link: 'Link copied.',
+    markdown: 'Markdown copied.',
+    citation: 'Citation copied.'
+  };
+
+  /**
+   * A link to the open record. The hash is the route, so any hash already on the
+   * url is dropped rather than appended to: the link should point at this record,
+   * not at wherever the reader happens to be sitting. Slugs are already reduced
+   * to [a-z0-9-], so there is nothing to escape.
+   */
+  function recordUrl(slug) {
+    return window.location.href.split('#')[0] + '#/' + slug;
+  }
+
+  function shareText(kind) {
+    var record = state.slug ? bySlug[state.slug] : null;
+    if (!record) return null;
+    if (kind === 'link') return recordUrl(record.slug);
+    if (kind === 'markdown') return record.source;
+    if (kind === 'citation') return record.citation;
+    return null;
+  }
+
+  /**
+   * The async clipboard api needs a secure context, which a page served over
+   * plain http — or opened off a network share — is not. The selection copy is
+   * deprecated but still the only thing that works there, so it stays as a
+   * fallback rather than the feature silently doing nothing.
+   */
+  function toClipboard(text) {
+    if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+      return window.navigator.clipboard.writeText(text);
+    }
+
+    return new Promise(function (resolve, reject) {
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.top = '-1000px';
+      document.body.appendChild(area);
+
+      // Selecting and copying both go in the try, so a browser that refuses
+      // either one still gets the scratch textarea taken back out of the page.
+      var copied = false;
+      try {
+        area.select();
+        copied = document.execCommand('copy');
+      } catch (e) {}
+      document.body.removeChild(area);
+
+      if (copied) resolve();
+      else reject(new Error('copy unavailable'));
+    });
+  }
+
+  var pendingButton = null;
+  var pendingTimer = null;
+  // Bumped by every press and every reset, so a clipboard write that resolves
+  // late — behind a permission prompt, say — knows it has been superseded and
+  // does not mark a button nobody is looking at any more.
+  var copySeq = 0;
+
+  function announce(message) {
+    var live = readerInner.querySelector('[data-copy-status]');
+    if (live) live.textContent = message;
+  }
+
+  /** Clear the marked button, whether or not it is still in the document. */
+  function settle() {
+    copySeq += 1;
+    if (pendingTimer) clearTimeout(pendingTimer);
+    pendingTimer = null;
+    if (pendingButton) {
+      pendingButton.removeAttribute('data-copied');
+      pendingButton = null;
+    }
+  }
+
+  /**
+   * The outcome is shown by marking the button, not by relabelling it: "Copy
+   * markdown" becoming "Copied" would shrink the button and shove the rest of
+   * the row sideways at the moment the reader is looking at it. The words go in
+   * the live region, which is what a screen reader is listening to anyway.
+   */
+  function mark(button, outcome, message) {
+    pendingButton = button;
+    button.setAttribute('data-copied', outcome);
+    announce(message);
+    pendingTimer = setTimeout(function () {
+      settle();
+      announce('');
+    }, 2400);
+  }
+
+  function copy(button, kind) {
+    var text = shareText(kind);
+    if (text === null) return;
+
+    settle();
+    var seq = copySeq;
+
+    function report(outcome, message) {
+      if (seq !== copySeq) return;
+      mark(button, outcome, message);
+    }
+
+    toClipboard(text).then(
+      function () {
+        report('true', COPY_MESSAGES[kind] || 'Copied.');
+      },
+      function () {
+        report('failed', 'Could not reach the clipboard.');
+      }
+    );
+  }
+
+  /**
+   * Hand the reader a file. Deliberately not window.print(): that aims at a
+   * printer, hides "Save as PDF" behind a destination menu, and cannot be
+   * scripted. The writer walks the record as rendered, so the file says what the
+   * screen says.
+   */
+  function downloadPdf(button) {
+    var record = state.slug ? bySlug[state.slug] : null;
+    var section = readerInner.querySelector('[data-slug]');
+    if (!record || !section || !window.__adrPdf) return;
+
+    settle();
+
+    var bytes;
+    try {
+      bytes = window.__adrPdf.build(section);
+    } catch (error) {
+      mark(button, 'failed', 'Could not build the PDF.');
+      return;
+    }
+
+    var url = window.URL.createObjectURL(new window.Blob([bytes], { type: 'application/pdf' }));
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'adr-' + record.slug + '.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    // Revoked late: revoking straight after the click can cancel the download.
+    setTimeout(function () { window.URL.revokeObjectURL(url); }, 4000);
+
+    mark(button, 'true', 'PDF downloaded.');
+  }
+
   /* ----------------------------------------------------------------- events */
 
   document.addEventListener('click', function (event) {
@@ -227,6 +386,20 @@ export const SCRIPT = String.raw`
         heading.scrollIntoView({ block: 'start', behavior: 'smooth' });
         return;
       }
+    }
+
+    var copyBtn = event.target.closest('[data-copy]');
+    if (copyBtn) {
+      event.preventDefault();
+      copy(copyBtn, copyBtn.getAttribute('data-copy'));
+      return;
+    }
+
+    var pdfBtn = event.target.closest('[data-pdf]');
+    if (pdfBtn) {
+      event.preventDefault();
+      downloadPdf(pdfBtn);
+      return;
     }
 
     var goto = event.target.closest('[data-goto]');
