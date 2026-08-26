@@ -206,8 +206,12 @@ function runMap(context: Context, flags: Flags): number {
 }
 
 async function runWeb(context: Context, flags: Flags): Promise<number> {
-  const out = flags.out ?? defaultOutputName(context.corpus, flags.root);
-  const result = await writeSite(context.corpus, flags.root, { out, now: context.now });
+  const out = flags.out ?? defaultOutputName(flags.root);
+  const result = await writeSite(context.corpus, flags.root, {
+    out,
+    now: context.now,
+    ...(flags.scope ? { scope: flags.scope } : {}),
+  });
 
   console.log(
     `${theme.ok('\u2713')} ${relative(process.cwd(), result.path)}  ${theme.dim(

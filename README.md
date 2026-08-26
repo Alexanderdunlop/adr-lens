@@ -21,12 +21,17 @@ adr-lens lint              # what is broken or stale?
 ## Install
 
 ```sh
-npm install -g adr-lens
-# or run it without installing
-npx adr-lens map
+npx adr-lens web --open      # no install
+npm install -g adr-lens      # or keep it around
 ```
 
 Requires Node 24+.
+
+Everything runs on your machine and reads your local files. Nothing is uploaded,
+and there is no server or account involved — which is the point, since ADRs
+usually live in private repos. The page it writes is a single file with no
+external requests, so where that file goes afterwards is entirely your choice:
+open it locally, commit it, or host it.
 
 ## What it does
 

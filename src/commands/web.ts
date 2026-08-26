@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { basename, resolve, sep } from 'node:path';
+import { basename, resolve } from 'node:path';
 import type { Corpus } from '../core/corpus.ts';
 import { renderPage } from '../web/page.ts';
 
@@ -24,7 +24,7 @@ export async function writeSite(
   options: WebOptions,
 ): Promise<WebResult> {
   const html = renderPage(corpus, {
-    scope: options.scope ?? inferScope(corpus, root),
+    scope: options.scope ?? inferScope(root),
     ...(options.now ? { now: options.now } : {}),
   });
 
@@ -35,38 +35,18 @@ export async function writeSite(
 }
 
 /**
- * Name the page after what it actually covers: the repository when every record
- * came from one, otherwise the directory the scan started from.
+ * Name the page after the directory the scan started from.
+ *
+ * Deriving it from where the records were *found* looks smarter and is worse:
+ * a monorepo whose records sit in `packages/engine/docs/adr` would be titled
+ * "engine". The scan root is what the reader asked about, and when the tool is
+ * run inside a repo — the normal case — that is the repo's own name.
  */
-function inferScope(corpus: Corpus, root: string): string {
-  const rootName = basename(resolve(root)) || 'decisions';
-
-  if (corpus.dirs.length === 1) {
-    const dir = corpus.dirs[0]!;
-    // `docs/adrs` inside a repo is less useful than the repo's own name, so walk
-    // up past the conventional docs folders.
-    const parts = dir.path.split(sep).filter(Boolean);
-    const conventional = new Set([
-      'adr',
-      'adrs',
-      'decisions',
-      'decision-records',
-      'architecture-decisions',
-      'architecture-decision-records',
-      'docs',
-      'doc',
-    ]);
-
-    for (let i = parts.length - 1; i >= 0; i--) {
-      if (!conventional.has(parts[i]!.toLowerCase())) return parts[i]!;
-    }
-    return rootName;
-  }
-
-  return rootName;
+function inferScope(root: string): string {
+  return basename(resolve(root)) || 'decisions';
 }
 
 /** Default output filename for a corpus, e.g. `billing-service-decisions.html`. */
-export function defaultOutputName(corpus: Corpus, root: string): string {
-  return `${inferScope(corpus, root)}-decisions.html`;
+export function defaultOutputName(root: string): string {
+  return `${inferScope(root)}-decisions.html`;
 }

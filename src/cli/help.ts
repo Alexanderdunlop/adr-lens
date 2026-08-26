@@ -34,6 +34,7 @@ ${theme.h2('Output')}
       --top <n>        How many entries per section (map).
   -o, --out <path>     Output file (web). Default: <scope>-decisions.html.
       --open           Open the generated page in your browser (web).
+      --scope <name>   Override the page's title (web). Default: directory name.
   -a, --all            Include informational findings (lint).
       --json           Machine-readable output.
       --no-color       Disable colour.

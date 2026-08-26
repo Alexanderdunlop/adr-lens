@@ -30,6 +30,8 @@ export interface Flags {
   version: boolean;
   /** Output path for `web`. */
   out?: string;
+  /** Overrides the page's title/scope label for `web`. */
+  scope?: string;
   /** Open the generated page in the default browser. */
   open: boolean;
 }
@@ -174,6 +176,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case '--open':
         flags.open = true;
+        break;
+      case '--scope':
+      case '--title':
+        flags.scope = takeValue();
         break;
       case '--section':
       case '--sections':
