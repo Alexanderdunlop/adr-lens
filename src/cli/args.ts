@@ -36,6 +36,10 @@ export interface Flags {
   open: boolean;
   /** Rebuild the page whenever a record changes. */
   watch: boolean;
+  /** Serve the page on localhost and push a reload after each rebuild. */
+  serve: boolean;
+  /** Port for `--serve`. A free one is chosen when this is not set. */
+  port?: number;
 }
 
 const STATUSES: readonly Status[] = [
@@ -72,6 +76,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     version: false,
     open: false,
     watch: false,
+    serve: false,
   };
 
   const operands: string[] = [];
@@ -184,6 +189,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--watch':
         flags.watch = true;
         break;
+      case '-S':
+      case '--serve':
+        flags.serve = true;
+        break;
+      case '--port':
+        flags.port = parsePort(takeValue(), name);
+        flags.serve = true;
+        break;
       case '--scope':
       case '--title':
         flags.scope = takeValue();
@@ -199,6 +212,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
         throw new ArgError(`Unknown option: ${name}`);
     }
   }
+
+  // A served page that never changes is just a worse `--open`, so serving implies
+  // watching. The reverse is not true: `--watch` on its own still writes a file
+  // and nothing else.
+  if (flags.serve) flags.watch = true;
 
   // A bare path as the first operand is a natural way to point the tool at a repo.
   if (!rootSet && command !== 'show' && operands.length > 0 && looksLikePath(operands[0]!)) {
@@ -216,6 +234,12 @@ function parseNumber(value: string, name: string): number {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed < 0) throw new ArgError(`${name} expects a number`);
   return parsed;
+}
+
+function parsePort(value: string, name: string): number {
+  const port = parseNumber(value, name);
+  if (port < 1 || port > 65535) throw new ArgError(`${name} expects a port between 1 and 65535`);
+  return port;
 }
 
 function parseStatuses(value: string): Status[] {

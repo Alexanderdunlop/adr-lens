@@ -15,6 +15,12 @@ export interface WebResult {
   path: string;
   bytes: number;
   records: number;
+  /**
+   * The page that was just written. Held so `--serve` can hand out the current
+   * build without reading back the file it wrote a moment ago — and without
+   * racing the next write.
+   */
+  html: string;
 }
 
 /** Write the whole corpus out as one self-contained HTML file. */
@@ -31,7 +37,7 @@ export async function writeSite(
   const path = resolve(options.out);
   await writeFile(path, html, 'utf8');
 
-  return { path, bytes: Buffer.byteLength(html, 'utf8'), records: corpus.adrs.length };
+  return { path, bytes: Buffer.byteLength(html, 'utf8'), records: corpus.adrs.length, html };
 }
 
 /**
