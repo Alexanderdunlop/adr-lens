@@ -44,6 +44,25 @@ describe('metadata', () => {
     expect(adr.author).toBe('Engineering Team');
   });
 
+  it('reads a hard-wrapped status as one paragraph, not one line', () => {
+    const adr = parse(
+      '# 2. Thing\n\nDate: 2026-01-01\n\n## Status\n\nAccepted. Scope narrowed by [TCK-1042](https://x.test/1):\nthe extra workers were folded into one queue.\n\n## Context\n\nWhy.\n',
+      '0002-thing.md',
+    );
+    expect(adr.statusRaw).toBe(
+      'Accepted. Scope narrowed by [TCK-1042](https://x.test/1): the extra workers were folded into one queue.',
+    );
+    expect(adr.status).toBe('accepted');
+  });
+
+  it('stops the status at a blockquote or list that follows it', () => {
+    const adr = parse(
+      '# 3. Thing\n\nDate: 2026-01-01\n\n## Status\n\nAccepted.\n\n> **Superseded in part by [ADR-0009](0009-x.md).**\n',
+      '0003-thing.md',
+    );
+    expect(adr.statusRaw).toBe('Accepted.');
+  });
+
   it('reads YAML frontmatter', () => {
     const adr = parse(
       '---\nstatus: Rejected\ndate: 2026-01-05\ndeciders: Platform\n---\n\n# 3. Thing\n\nBody.\n',

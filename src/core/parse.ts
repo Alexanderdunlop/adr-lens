@@ -55,7 +55,7 @@ export function parseAdr(raw: string, options: ParseOptions = {}): ParsedAdr {
   );
 
   const statusRaw =
-    firstNonEmpty(sectionBody(sections, 'status')) ??
+    firstParagraph(sectionBody(sections, 'status')) ??
     fieldValue(preamble, 'status') ??
     fieldValue(lines, 'status') ??
     frontmatter.status ??
@@ -288,13 +288,29 @@ function stripMetadataPreamble(body: string): string {
   return dropped > 0 ? lines.slice(i).join('\n') : body;
 }
 
-function firstNonEmpty(text: string | null): string | null {
+/**
+ * The first paragraph, not the first line.
+ *
+ * A status is often a sentence or two of prose that happens to be hard-wrapped,
+ * and taking one line truncates it mid-clause. A blank line ends it, so a status
+ * section followed by other content still stops in the right place.
+ */
+function firstParagraph(text: string | null): string | null {
   if (!text) return null;
+
+  const lines: string[] = [];
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
-    if (trimmed) return trimmed;
+    if (!trimmed) {
+      if (lines.length > 0) break; // blank line after content ends the paragraph
+      continue; // leading blank lines are skipped
+    }
+    // A heading or list marker starts new structure rather than continuing prose.
+    if (lines.length > 0 && /^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>)/.test(trimmed)) break;
+    lines.push(trimmed);
   }
-  return null;
+
+  return lines.length > 0 ? lines.join(' ') : null;
 }
 
 function normaliseDate(value: string | null | undefined): string | null {

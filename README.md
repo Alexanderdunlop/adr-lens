@@ -18,6 +18,19 @@ adr-lens browse            # explore interactively
 adr-lens lint              # what is broken or stale?
 ```
 
+## Try it without a repo of your own
+
+The repo ships an invented 13-record corpus:
+
+```sh
+git clone https://github.com/Alexanderdunlop/adr-lens && cd adr-lens
+npx adr-lens web -C examples/billing-service --open
+```
+
+It covers the awkward cases on purpose: both title layouts, YAML frontmatter, a
+hard-wrapped status, a full supersession chain and a partial one, a rejected
+decision, tables, a mermaid diagram, and a link to a non-record file.
+
 ## Install
 
 ```sh
