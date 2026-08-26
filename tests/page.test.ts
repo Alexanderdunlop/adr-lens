@@ -143,6 +143,14 @@ describe('register', () => {
     expect(doc.querySelector('#q')).not.toBeNull();
   });
 
+  it('offers the three sort orders, defaulting to newest', () => {
+    const sorts = [...doc.querySelectorAll('#sorts [data-sort]')];
+    expect(sorts.map((el) => el.getAttribute('data-sort'))).toEqual(['newest', 'number', 'cited']);
+    const pressed = sorts.filter((el) => el.getAttribute('aria-pressed') === 'true');
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0]?.getAttribute('data-sort')).toBe('newest');
+  });
+
   it('offers an all, current, and per-status filter', () => {
     const filters = [...doc.querySelectorAll('#filters [data-filter]')].map((el) =>
       el.getAttribute('data-filter'),
@@ -190,10 +198,12 @@ describe('a record', () => {
     expect(glance?.textContent).toContain('single-pass settlement model');
   });
 
-  it('states status, date, and reading time', () => {
+  it('states status, an absolute date, and reading time', () => {
     const meta = record('0002').querySelector('.rec-meta')?.textContent ?? '';
     expect(meta).toContain('Accepted');
-    expect(meta).toContain('2026-03-02');
+    // A spelled-out date, not "5mo ago" — the reader is placing it in time.
+    expect(meta).toContain('2 March 2026');
+    expect(meta).not.toMatch(/ago/);
     expect(meta).toMatch(/min read/);
   });
 

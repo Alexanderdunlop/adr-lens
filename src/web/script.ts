@@ -13,13 +13,29 @@ export const SCRIPT = String.raw`
   var readerInner = document.getElementById('reader-inner');
   var searchEl = document.getElementById('q');
   var filtersEl = document.getElementById('filters');
+  var sortsEl = document.getElementById('sorts');
   var template = document.getElementById('tpl-records');
 
   var overviewHtml = readerInner.innerHTML;
   var bySlug = {};
   for (var i = 0; i < model.records.length; i++) bySlug[model.records[i].slug] = model.records[i];
 
-  var state = { query: '', filter: 'all', slug: null, visible: [] };
+  var state = { query: '', filter: 'all', sort: readSort(), slug: null, visible: [] };
+
+  // Remembered for the tab, so changing sort then opening a record and coming
+  // back does not silently reset it. Storage can be unavailable in a sandboxed
+  // frame, so every access is guarded.
+  function readSort() {
+    try {
+      var saved = window.sessionStorage.getItem('adr-lens:sort');
+      if (saved && model.orders[saved]) return saved;
+    } catch (e) {}
+    return 'newest';
+  }
+
+  function writeSort(value) {
+    try { window.sessionStorage.setItem('adr-lens:sort', value); } catch (e) {}
+  }
 
   /* ------------------------------------------------------------- filtering */
 
@@ -47,7 +63,12 @@ export const SCRIPT = String.raw`
   /* -------------------------------------------------------------- register */
 
   function renderRegister() {
-    state.visible = model.records.filter(matches);
+    var order = model.orders[state.sort] || model.orders.newest;
+    state.visible = [];
+    for (var oi = 0; oi < order.length; oi++) {
+      var rec = model.records[order[oi]];
+      if (matches(rec)) state.visible.push(rec);
+    }
 
     if (state.visible.length === 0) {
       registerEl.innerHTML =
@@ -55,7 +76,7 @@ export const SCRIPT = String.raw`
       return;
     }
 
-    var showGroups = model.groups.length > 1;
+    var showGroups = model.groups.length > 1 && state.sort === 'number';
     var html = [];
     var lastGroup = null;
 
@@ -75,10 +96,9 @@ export const SCRIPT = String.raw`
         );
       }
 
-      var foot = [];
-      if (record.citedBy > 0) foot.push(record.citedBy + ' refs');
-      foot.push(record.age);
-      foot.push(record.minutes + ' min');
+      var foot = ['<span class="d">' + escapeHtml(record.dateLabel) + '</span>'];
+      if (record.citedBy > 0) foot.push('<span>' + record.citedBy + ' refs</span>');
+      foot.push('<span>' + record.minutes + ' min</span>');
 
       html.push(
         '<button class="entry' + (record.replaced ? ' is-superseded' : '') +
@@ -88,9 +108,7 @@ export const SCRIPT = String.raw`
           '<span class="title"><span class="dot ' + record.status + '"></span>' +
           '<span class="label">' + escapeHtml(record.title) + '</span></span>' +
           (record.gistText ? '<span class="gist">' + escapeHtml(record.gistText) + '</span>' : '') +
-          '<span class="foot">' + foot.map(function (f) {
-            return '<span>' + escapeHtml(f) + '</span>';
-          }).join('') + '</span>' +
+          '<span class="foot">' + foot.join('') + '</span>' +
         '</button>'
       );
     }
@@ -196,6 +214,17 @@ export const SCRIPT = String.raw`
       searchEl.value = '';
       syncChips();
       renderRegister();
+      restoreCurrent();
+      return;
+    }
+
+    var sortBtn = event.target.closest('[data-sort]');
+    if (sortBtn) {
+      state.sort = sortBtn.getAttribute('data-sort');
+      writeSort(state.sort);
+      syncSorts();
+      renderRegister();
+      restoreCurrent();
       return;
     }
 
@@ -205,8 +234,27 @@ export const SCRIPT = String.raw`
       state.filter = state.filter === value ? 'all' : value;
       syncChips();
       renderRegister();
+      restoreCurrent();
     }
   });
+
+  function syncSorts() {
+    var buttons = sortsEl.querySelectorAll('[data-sort]');
+    for (var i = 0; i < buttons.length; i++) {
+      var on = buttons[i].getAttribute('data-sort') === state.sort;
+      buttons[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /** Re-mark the open record after the list is rebuilt underneath it. */
+  function restoreCurrent() {
+    if (!state.slug) return;
+    var el = registerEl.querySelector('[data-goto="' + cssEscape(state.slug) + '"]');
+    if (el) {
+      el.setAttribute('aria-current', 'true');
+      scrollIntoViewIfNeeded(el);
+    }
+  }
 
   function syncChips() {
     var chips = filtersEl.querySelectorAll('[data-filter]');
@@ -220,6 +268,7 @@ export const SCRIPT = String.raw`
   searchEl.addEventListener('input', function () {
     state.query = searchEl.value.trim().toLowerCase();
     renderRegister();
+    restoreCurrent();
   });
 
   document.addEventListener('keydown', function (event) {
@@ -267,6 +316,7 @@ export const SCRIPT = String.raw`
   /* -------------------------------------------------------------------- init */
 
   syncChips();
+  syncSorts();
   renderRegister();
   show(fromHash());
 })();

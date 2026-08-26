@@ -224,6 +224,40 @@ body {
 .chip .n { font-variant-numeric: tabular-nums; color: var(--faint); }
 .chip[aria-pressed="true"] .n { color: var(--accent-ink); }
 
+.sorts {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sorts-label {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 0.25rem;
+}
+
+.sort {
+  font: inherit;
+  font-size: var(--step--1);
+  padding: 0.125rem 0.375rem;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sort:hover { color: var(--ink); background: var(--surface-2); }
+
+.sort[aria-pressed="true"] {
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 .register {
   overflow-y: auto;
   flex: 1;
@@ -319,6 +353,9 @@ body {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
+
+/* The date is a fixed-width column, so dates line up down the register. */
+.entry .foot .d { font-family: var(--mono); }
 
 /* State reads as form, not just colour: a filled dot for live, a ring for not. */
 .dot {
@@ -816,7 +853,41 @@ body {
 @media (max-width: 60rem) {
   .app { grid-template-columns: 1fr; }
   .rail { height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--rule); }
-  .register { max-height: none; }
+  .sorts {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sorts-label {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 0.25rem;
+}
+
+.sort {
+  font: inherit;
+  font-size: var(--step--1);
+  padding: 0.125rem 0.375rem;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sort:hover { color: var(--ink); background: var(--surface-2); }
+
+.sort[aria-pressed="true"] {
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.register { max-height: none; }
   .reader-inner { padding: 2rem 1.25rem 4rem; }
   .rec-title { font-size: var(--step-3); }
   .back { display: inline-flex; }

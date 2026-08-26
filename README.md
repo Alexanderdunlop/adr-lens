@@ -88,10 +88,11 @@ adr-lens web -C ~/code --open       # every repo under a directory, grouped
 
 The page has two halves:
 
-- **The register** — every record as one row: number, status, title, and the
-  one-sentence decision. Type to filter across titles, decisions, and body text;
-  filter to *current only* or by status. `/` focuses the search, `j`/`k` step
-  through results.
+- **The register** — every record as one row: number, status, title, the date, and
+  the one-sentence decision. Sorted newest first, with a toggle for `Number` or
+  `Most cited`; undated records always sort last. Type to filter across titles,
+  decisions, and body text; filter to *current only* or by status. `/` focuses the
+  search, `j`/`k` step through results.
 - **The reading view** — the decision stated once, up front, before any context.
   Then the record itself: proper measure and line-height, tables that scroll in
   their own container, mermaid diagrams drawn as diagrams, and cross-references

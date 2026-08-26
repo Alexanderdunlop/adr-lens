@@ -118,6 +118,12 @@ function renderRail(model: WebModel): string {
     <div class="filters" id="filters">
       ${filters}
     </div>
+    <div class="sorts" id="sorts" role="group" aria-label="Sort order">
+      <span class="sorts-label">Sort</span>
+      <button class="sort" type="button" data-sort="newest" aria-pressed="true">Newest</button>
+      <button class="sort" type="button" data-sort="number" aria-pressed="false">Number</button>
+      <button class="sort" type="button" data-sort="cited" aria-pressed="false">Most cited</button>
+    </div>
   </div>
   <div class="register" id="register" role="list"></div>
 </aside>`;
@@ -216,9 +222,7 @@ function renderOverview(model: WebModel): string {
 function renderRecord(record: WebRecord): string {
   const meta = [
     `<span class="state ${record.status}"><span class="dot ${record.status}"></span>${escapeHtml(record.statusLabel)}</span>`,
-    record.date
-      ? `<span>${escapeHtml(record.date)}<span class="sep"> · </span>${escapeHtml(record.age)} ago</span>`
-      : '',
+    record.dateLong ? `<span>${escapeHtml(record.dateLong)}</span>` : '',
     `<span>${record.minutes} min read</span>`,
     record.citedBy > 0 ? `<span>referenced by ${record.citedBy}</span>` : '',
     record.author ? `<span>${escapeHtml(record.author)}</span>` : '',

@@ -1,12 +1,6 @@
 import { dirname } from 'node:path';
 import type { Corpus } from '../core/corpus.ts';
-import {
-  ageInDays,
-  currentVersion,
-  decisionLine,
-  formatAge,
-  readingMinutes,
-} from '../core/digest.ts';
+import { currentVersion, decisionLine, readingMinutes } from '../core/digest.ts';
 import type { AdrNode, RelationKind, Status } from '../core/types.ts';
 import { headingId, renderHtml, renderInlineHtml } from '../render/html.ts';
 
@@ -22,7 +16,10 @@ export interface WebRecord {
   /** Free-text status, rendered inline, when it says more than the label. */
   statusProse: string | null;
   date: string | null;
-  age: string;
+  /** `2026-06-04`, or an em dash when undated. Aligns in a column. */
+  dateLabel: string;
+  /** `4 June 2026`, for the record header where there is room. */
+  dateLong: string | null;
   author: string | null;
   minutes: number;
   words: number;
@@ -118,7 +115,7 @@ export interface BuildOptions {
 export function buildModel(corpus: Corpus, options: BuildOptions): WebModel {
   const slugs = assignSlugs(corpus.adrs);
 
-  const records = corpus.adrs.map((adr) => toRecord(adr, corpus, slugs, options.now));
+  const records = corpus.adrs.map((adr) => toRecord(adr, corpus, slugs));
 
   const groupCounts = new Map<string, number>();
   for (const record of records) {
@@ -198,7 +195,7 @@ function slugify(text: string): string {
 
 /* --------------------------------------------------------------------- records */
 
-function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>, now: Date): WebRecord {
+function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>): WebRecord {
   const slug = slugs.get(adr.id)!;
   const gistText = decisionLine(adr);
 
@@ -223,7 +220,8 @@ function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>, now:
     statusLabel: STATUS_LABELS[adr.status],
     statusProse: statusProse(adr, corpus, slugs),
     date: adr.date,
-    age: formatAge(ageInDays(adr, now)),
+    dateLabel: adr.date ?? '—',
+    dateLong: longDate(adr.date),
     author: adr.author,
     minutes: readingMinutes(adr),
     words: adr.wordCount,
@@ -239,6 +237,35 @@ function toRecord(adr: AdrNode, corpus: Corpus, slugs: Map<string, string>, now:
     relations: buildRelations(adr, corpus, slugs),
     haystack: buildHaystack(adr, gistText),
   };
+}
+
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/**
+ * `2026-06-04` becomes `4 June 2026`. Formatted by hand rather than through
+ * `toLocaleDateString`, so the same corpus renders identically on every machine
+ * and the tests can assert on it.
+ */
+function longDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  const month = MONTHS[Number.parseInt(match[2]!, 10) - 1];
+  if (!month) return iso;
+  return `${Number.parseInt(match[3]!, 10)} ${month} ${match[1]}`;
 }
 
 /** Words that a status line spends on saying which state it is in. */
@@ -404,23 +431,31 @@ export interface ClientRecord {
   status: Status;
   group: string;
   citedBy: number;
-  age: string;
+  dateLabel: string;
   minutes: number;
   gistText: string | null;
   replaced: boolean;
   haystack: string;
 }
 
+export type SortKey = 'newest' | 'number' | 'cited';
+
 export interface ClientModel {
   scope: string;
   records: ClientRecord[];
   groups: Array<{ name: string; count: number }>;
+  /**
+   * Record indices in each sort order, computed here rather than in the browser
+   * so the ordering rules are covered by tests.
+   */
+  orders: Record<SortKey, number[]>;
 }
 
 export function toClientModel(model: WebModel): ClientModel {
   return {
     scope: model.scope,
     groups: model.groups,
+    orders: buildOrders(model.records),
     records: model.records.map((record) => ({
       slug: record.slug,
       numberLabel: record.numberLabel,
@@ -428,12 +463,41 @@ export function toClientModel(model: WebModel): ClientModel {
       status: record.status,
       group: record.group,
       citedBy: record.citedBy,
-      age: record.age,
+      dateLabel: record.dateLabel,
       minutes: record.minutes,
       gistText: record.gistText,
       replaced: record.replacedBy !== null,
       haystack: record.haystack,
     })),
+  };
+}
+
+/**
+ * The three orders the register offers.
+ *
+ * An undated record always sorts last, never first: a missing date is not a
+ * claim to be recent. Ties fall back to number so the order is total and the
+ * page renders identically for the same corpus.
+ */
+export function buildOrders(records: WebRecord[]): Record<SortKey, number[]> {
+  const index = records.map((_, i) => i);
+  const byNumber = (a: number, b: number): number =>
+    (records[a]!.number ?? Number.MAX_SAFE_INTEGER) -
+    (records[b]!.number ?? Number.MAX_SAFE_INTEGER);
+
+  return {
+    number: [...index].sort(byNumber),
+
+    newest: [...index].sort((a, b) => {
+      const da = records[a]!.date;
+      const db = records[b]!.date;
+      if (da && db) return db.localeCompare(da) || byNumber(a, b);
+      if (da) return -1;
+      if (db) return 1;
+      return byNumber(a, b);
+    }),
+
+    cited: [...index].sort((a, b) => records[b]!.citedBy - records[a]!.citedBy || byNumber(a, b)),
   };
 }
 
