@@ -35,6 +35,8 @@ ${theme.h2('Output')}
   -o, --out <path>     Output file (web). Default: <scope>-decisions.html.
       --open           Open the generated page in your browser (web).
   -W, --watch          Rebuild the page whenever a record changes (web).
+  -S, --serve          Serve it on localhost and reload the tab on save (web, implies --watch).
+      --port <n>       Port for --serve (web). Default: 4230, or a free port.
       --scope <name>   Override the page's title (web). Default: directory name.
   -a, --all            Include informational findings (lint).
       --json           Machine-readable output.
@@ -56,8 +58,8 @@ ${theme.h2('Examples')}
   ${theme.dim('# A readable web page for the whole corpus')}
   adr-lens web --open
 
-  ${theme.dim('# Keep it open while writing a decision')}
-  adr-lens web --watch --open
+  ${theme.dim('# Keep it open while writing a decision — the tab reloads itself')}
+  adr-lens web --serve --open
 
   ${theme.dim('# Audit before a review')}
   adr-lens lint --all

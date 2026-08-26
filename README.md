@@ -41,10 +41,11 @@ npm install -g adr-lens      # or keep it around
 Requires Node 24+.
 
 Everything runs on your machine and reads your local files. Nothing is uploaded,
-and there is no server or account involved — which is the point, since ADRs
+and there is no service or account involved — which is the point, since ADRs
 usually live in private repos. The page it writes is a single file with no
 external requests, so where that file goes afterwards is entirely your choice:
-open it locally, commit it, or host it.
+open it locally, commit it, or host it. (`adr-lens web --serve` runs a server, but
+a local one, bound to loopback, and only while you leave it running.)
 
 ## What it does
 
@@ -82,7 +83,7 @@ server, no external requests. Open it from disk, commit it, or publish it.
 
 ```sh
 adr-lens web --open                 # write <scope>-decisions.html and open it
-adr-lens web --watch --open         # keep it open while writing a decision
+adr-lens web --serve --open         # keep it open while writing; the tab reloads itself
 adr-lens web -o docs/decisions.html
 adr-lens web -C ~/code --open       # every repo under a directory, grouped
 ```
@@ -91,6 +92,13 @@ adr-lens web -C ~/code --open       # every repo under a directory, grouped
 corpus each time rather than patching one record, because adding a record changes
 the citation graph and the rankings for every other record. Reload the page to
 see a rebuild — your scroll position is restored, so you land where you were.
+
+`--serve` adds a small localhost server and pushes that reload for you, so saving
+a record updates the tab. It is additive: the file is still written to disk, and
+the reload client exists only in the copy served over HTTP — what you commit or
+send to someone is the same plain page as before. It listens on loopback only,
+prints its URL, takes a free port if 4230 is busy (`--port` to choose), implies
+`--watch`, and stops with ctrl-c.
 
 The page has two halves:
 

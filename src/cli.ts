@@ -6,6 +6,7 @@ import { createContext, filtered, type GlobalFlags, resolveOne } from './command
 import { lintCorpus, lintExitCode, renderLint } from './commands/lint.ts';
 import { renderList, summariseCorpus } from './commands/list.ts';
 import { mapToJson, renderMap } from './commands/map.ts';
+import type { ServeHandle } from './commands/serve.ts';
 import { renderShow } from './commands/show.ts';
 import { defaultOutputName, watchSite, writeSite } from './commands/web.ts';
 import { search } from './core/search.ts';
@@ -243,12 +244,20 @@ async function runWebWatch(
   const { clockTime, createStatusLine } = await import('./commands/watch.ts');
   const status = createStatusLine(process.stdout);
 
+  // The newest build, served from memory rather than read back off disk.
+  let page = '';
+  let server: ServeHandle | null = null;
+
   const { handle, initial } = await watchSite(flags.root, {
     ...options,
     onBuild: (result) => {
+      page = result.html;
+      const pushed = server?.reload() ?? 0;
       status.update(
         `${theme.dim(clockTime(new Date()))} ${theme.ok('\u2713')} rebuilt  ${theme.dim(
-          `${result.records} records \u00b7 ${Math.round(result.bytes / 1024)} kB`,
+          `${result.records} records \u00b7 ${Math.round(result.bytes / 1024)} kB${
+            pushed > 0 ? ` \u00b7 reloaded ${pushed} tab${pushed === 1 ? '' : 's'}` : ''
+          }`,
         )}`,
       );
     },
@@ -259,6 +268,20 @@ async function runWebWatch(
       );
     },
   });
+  page = initial.html;
+
+  if (flags.serve) {
+    const { startServer } = await import('./commands/serve.ts');
+    try {
+      server = await startServer(() => page, flags.port !== undefined ? { port: flags.port } : {});
+    } catch (error) {
+      // A port we cannot have is worth stopping for, rather than silently
+      // degrading to the manual-refresh mode the user asked to be rid of.
+      handle.close();
+      console.error(theme.error(error instanceof Error ? error.message : String(error)));
+      return 1;
+    }
+  }
 
   const where = relative(process.cwd(), initial.path);
   console.log(
@@ -266,17 +289,24 @@ async function runWebWatch(
       `${initial.records} records \u00b7 ${Math.round(initial.bytes / 1024)} kB`,
     )}`,
   );
-  console.log(
-    theme.dim(`  watching for changes \u00b7 reload the page after a save \u00b7 ctrl-c to stop`),
-  );
+  if (server) {
+    console.log(`  ${server.url}`);
+    console.log(theme.dim(`  reloads on save \u00b7 ctrl-c to stop`));
+  } else {
+    console.log(
+      theme.dim(`  watching for changes \u00b7 reload the page after a save \u00b7 ctrl-c to stop`),
+    );
+  }
 
-  if (flags.open) await openInBrowser(initial.path);
+  if (flags.open) await openInBrowser(server ? server.url : initial.path);
 
   await new Promise<void>((resolve) => {
     const stop = (): void => {
       handle.close();
       status.done();
-      resolve();
+      // Tell the open tabs to stop listening before the socket disappears.
+      const closed = server ? server.close() : Promise.resolve();
+      void closed.then(resolve, resolve);
     };
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
