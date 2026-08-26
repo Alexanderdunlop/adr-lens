@@ -255,6 +255,25 @@ pnpm lint                      # biome
 pnpm build                     # tsdown → dist/
 ```
 
+## Releasing
+
+Versions are managed by [changesets](https://github.com/changesets/changesets).
+Add a note in the same pull request as the change:
+
+```sh
+pnpm changeset
+```
+
+On merge to `main`, CI opens a **"chore: version packages"** pull request that
+bumps the version and writes the changelog. Merging that pull request publishes
+to npm. A change with no changeset ships no release — correct for refactors,
+tests, and docs.
+
+`prepublishOnly` runs types, tests, and the build before anything leaves, so a
+red build cannot publish.
+
+Requires an `NPM_TOKEN` repository secret with publish rights.
+
 ## Licence
 
 MIT
