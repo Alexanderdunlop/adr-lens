@@ -82,9 +82,15 @@ server, no external requests. Open it from disk, commit it, or publish it.
 
 ```sh
 adr-lens web --open                 # write <scope>-decisions.html and open it
+adr-lens web --watch --open         # keep it open while writing a decision
 adr-lens web -o docs/decisions.html
 adr-lens web -C ~/code --open       # every repo under a directory, grouped
 ```
+
+`--watch` rewrites the page whenever a record changes. It reloads the whole
+corpus each time rather than patching one record, because adding a record changes
+the citation graph and the rankings for every other record. Reload the page to
+see a rebuild — your scroll position is restored, so you land where you were.
 
 The page has two halves:
 

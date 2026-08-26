@@ -50,3 +50,80 @@ function inferScope(root: string): string {
 export function defaultOutputName(root: string): string {
   return `${inferScope(root)}-decisions.html`;
 }
+
+/* ----------------------------------------------------------------- watching */
+
+export interface WatchHandle {
+  /** Stop watching and release the file watchers. */
+  close(): void;
+}
+
+export interface WatchOptions extends WebOptions {
+  /** Quiet period before rebuilding, in milliseconds. */
+  debounceMs?: number;
+  /** Called after each successful write. */
+  onBuild?: (result: WebResult) => void;
+  /** Called when a rebuild throws, instead of crashing the watcher. */
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Write the page, then rewrite it whenever a record changes.
+ *
+ * The whole corpus is reloaded on every rebuild rather than patching the record
+ * that changed. Adding one record alters the citation graph, the supersession
+ * chains, and the "most cited" ranking for every other record, so a partial
+ * update would be wrong more often than it was fast — and a full reload of a
+ * hundred records takes well under a second.
+ */
+export async function watchSite(
+  root: string,
+  options: WatchOptions,
+): Promise<{ handle: WatchHandle; initial: WebResult }> {
+  const { watch } = await import('node:fs');
+  const { loadCorpus } = await import('../core/corpus.ts');
+  const { createDebouncer, isRelevantChange } = await import('./watch.ts');
+
+  const rebuild = async (): Promise<void> => {
+    try {
+      const corpus = await loadCorpus(root);
+      const result = await writeSite(corpus, root, options);
+      options.onBuild?.(result);
+    } catch (error) {
+      options.onError?.(error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
+  const corpus = await loadCorpus(root);
+  const initial = await writeSite(corpus, root, options);
+
+  const debouncer = createDebouncer(() => {
+    void rebuild();
+  }, options.debounceMs ?? 150);
+
+  const watchers = corpus.dirs.map((dir) =>
+    watch(dir.path, { recursive: true }, (_event, filename) => {
+      if (isRelevantChange(filename, options.out)) debouncer.trigger();
+    }),
+  );
+
+  return {
+    initial,
+    handle: {
+      close(): void {
+        debouncer.cancel();
+        for (const watcher of watchers) watcher.close();
+      },
+    },
+  };
+}
+
+/**
+ * The directories being watched. Exposed so the CLI can say what it is watching,
+ * and so it can warn that a *new* ADR directory needs a restart to be picked up.
+ */
+export async function watchedDirs(root: string): Promise<string[]> {
+  const { loadCorpus } = await import('../core/corpus.ts');
+  const corpus = await loadCorpus(root);
+  return corpus.dirs.map((d) => d.path);
+}

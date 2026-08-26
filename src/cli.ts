@@ -7,7 +7,7 @@ import { lintCorpus, lintExitCode, renderLint } from './commands/lint.ts';
 import { renderList, summariseCorpus } from './commands/list.ts';
 import { mapToJson, renderMap } from './commands/map.ts';
 import { renderShow } from './commands/show.ts';
-import { defaultOutputName, writeSite } from './commands/web.ts';
+import { defaultOutputName, watchSite, writeSite } from './commands/web.ts';
 import { search } from './core/search.ts';
 import type { AdrNode } from './core/types.ts';
 import { theme } from './render/theme.ts';
@@ -207,11 +207,15 @@ function runMap(context: Context, flags: Flags): number {
 
 async function runWeb(context: Context, flags: Flags): Promise<number> {
   const out = flags.out ?? defaultOutputName(flags.root);
-  const result = await writeSite(context.corpus, flags.root, {
+  const options = {
     out,
     now: context.now,
     ...(flags.scope ? { scope: flags.scope } : {}),
-  });
+  };
+
+  if (flags.watch) return runWebWatch(flags, options);
+
+  const result = await writeSite(context.corpus, flags.root, options);
 
   console.log(
     `${theme.ok('\u2713')} ${relative(process.cwd(), result.path)}  ${theme.dim(
@@ -220,17 +224,72 @@ async function runWeb(context: Context, flags: Flags): Promise<number> {
   );
 
   if (flags.open) {
-    // macOS `open`, Linux `xdg-open`, Windows `start` — spawn detached so the
-    // command returns immediately.
-    const opener =
-      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-    const { spawn } = await import('node:child_process');
-    spawn(opener, [result.path], { detached: true, stdio: 'ignore' }).unref();
+    await openInBrowser(result.path);
   } else {
     console.log(theme.dim(`  open it with: open ${relative(process.cwd(), result.path)}`));
   }
 
   return 0;
+}
+
+/**
+ * Watch mode never returns on its own: it holds the process open until
+ * interrupted, reporting each rebuild on a single status line.
+ */
+async function runWebWatch(
+  flags: Flags,
+  options: { out: string; now: Date; scope?: string },
+): Promise<number> {
+  const { clockTime, createStatusLine } = await import('./commands/watch.ts');
+  const status = createStatusLine(process.stdout);
+
+  const { handle, initial } = await watchSite(flags.root, {
+    ...options,
+    onBuild: (result) => {
+      status.update(
+        `${theme.dim(clockTime(new Date()))} ${theme.ok('\u2713')} rebuilt  ${theme.dim(
+          `${result.records} records \u00b7 ${Math.round(result.bytes / 1024)} kB`,
+        )}`,
+      );
+    },
+    onError: (error) => {
+      // A rebuild failing must not end the session — the next save usually fixes it.
+      status.update(
+        `${theme.dim(clockTime(new Date()))} ${theme.error('\u2717')} ${error.message}`,
+      );
+    },
+  });
+
+  const where = relative(process.cwd(), initial.path);
+  console.log(
+    `${theme.ok('\u2713')} ${where}  ${theme.dim(
+      `${initial.records} records \u00b7 ${Math.round(initial.bytes / 1024)} kB`,
+    )}`,
+  );
+  console.log(
+    theme.dim(`  watching for changes \u00b7 reload the page after a save \u00b7 ctrl-c to stop`),
+  );
+
+  if (flags.open) await openInBrowser(initial.path);
+
+  await new Promise<void>((resolve) => {
+    const stop = (): void => {
+      handle.close();
+      status.done();
+      resolve();
+    };
+    process.once('SIGINT', stop);
+    process.once('SIGTERM', stop);
+  });
+
+  return 0;
+}
+
+async function openInBrowser(path: string): Promise<void> {
+  const opener =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  const { spawn } = await import('node:child_process');
+  spawn(opener, [path], { detached: true, stdio: 'ignore' }).unref();
 }
 
 async function runBrowse(context: Context, operands: string[], flags: Flags): Promise<number> {
