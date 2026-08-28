@@ -3,12 +3,15 @@ import { relative } from 'node:path';
 import { ArgError, type Flags, parseArgs } from './cli/args.ts';
 import { renderHelp } from './cli/help.ts';
 import { createContext, filtered, type GlobalFlags, resolveOne } from './commands/context.ts';
+import { diffToJson, renderDiff } from './commands/diff.ts';
 import { lintCorpus, lintExitCode, renderLint } from './commands/lint.ts';
 import { renderList, summariseCorpus } from './commands/list.ts';
 import { mapToJson, renderMap } from './commands/map.ts';
 import type { ServeHandle } from './commands/serve.ts';
 import { renderShow } from './commands/show.ts';
 import { defaultOutputName, watchSite, writeSite } from './commands/web.ts';
+import { diffCorpora } from './core/diff.ts';
+import { GitError, knownDirs, loadCorpusAtRev, openRepo, resolveRange } from './core/git.ts';
 import { search } from './core/search.ts';
 import type { AdrNode } from './core/types.ts';
 import { theme } from './render/theme.ts';
@@ -42,7 +45,9 @@ async function main(argv: string[]): Promise<number> {
 
   const context = await createContext(flags as GlobalFlags);
 
-  if (context.corpus.adrs.length === 0) {
+  // `diff` is the one command with something to say about an empty corpus:
+  // deleting the last record is a change worth reporting, not a dead end.
+  if (context.corpus.adrs.length === 0 && command !== 'diff') {
     console.error(theme.warn(`No decision records found under ${flags.root}`));
     console.error(
       theme.dim(
@@ -63,6 +68,8 @@ async function main(argv: string[]): Promise<number> {
       return runBrowse(context, operands, flags);
     case 'web':
       return runWeb(context, flags);
+    case 'diff':
+      return runDiff(context, operands, flags);
     case 'search':
       return runSearch(context, operands, flags);
     default:
@@ -195,6 +202,37 @@ function runLint(context: Context, flags: Flags): number {
 
   console.log(renderLint(context, findings, { all: flags.all }).join('\n'));
   return lintExitCode(findings);
+}
+
+/**
+ * The working tree is the head side when the range leaves it open (`main..`), so
+ * a record being written shows up before it is committed. Every other case reads
+ * both sides out of git.
+ */
+async function runDiff(context: Context, operands: string[], flags: Flags): Promise<number> {
+  try {
+    const repo = await openRepo(flags.root);
+    const range = await resolveRange(repo, operands.join(' ').trim());
+    const known = knownDirs(context.corpus, repo);
+
+    const base = await loadCorpusAtRev(repo, range.base, { known });
+    const head =
+      range.head === null ? context.corpus : await loadCorpusAtRev(repo, range.head, { known });
+
+    const diff = diffCorpora(base, head);
+
+    if (flags.json) {
+      console.log(JSON.stringify(diffToJson(diff, range), null, 2));
+      return 0;
+    }
+
+    console.log(renderDiff(diff, range, { width: context.width }).join('\n'));
+    return 0;
+  } catch (error) {
+    if (!(error instanceof GitError)) throw error;
+    console.error(theme.error(error.message));
+    return 1;
+  }
 }
 
 function runMap(context: Context, flags: Flags): number {

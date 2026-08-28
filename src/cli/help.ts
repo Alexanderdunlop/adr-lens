@@ -12,6 +12,7 @@ ${theme.h2('Commands')}
   ${theme.bold('browse')} [query]    Interactive browser — list on the left, record on the right.
   ${theme.bold('web')}               Write the whole corpus as one self-contained HTML page.
   ${theme.bold('map')}               Where to start: most-cited records, supersession chains, loose ends.
+  ${theme.bold('diff')} [range]      What changed about the decisions between two revisions.
   ${theme.bold('lint')}              Audit the corpus for duplicates, broken links, and stale statuses.
   ${theme.bold('search')} <query>    Rank records by relevance to a query.
 
@@ -60,6 +61,15 @@ ${theme.h2('Examples')}
 
   ${theme.dim('# Keep it open while writing a decision — the tab reloads itself')}
   adr-lens web --serve --open
+
+  ${theme.dim('# What this branch changed about the decisions')}
+  adr-lens diff
+
+  ${theme.dim('# Including the record you have not committed yet')}
+  adr-lens diff main..
+
+  ${theme.dim('# From where the branch diverged, as a reviewer sees it')}
+  adr-lens diff origin/main...
 
   ${theme.dim('# Audit before a review')}
   adr-lens lint --all

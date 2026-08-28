@@ -64,6 +64,11 @@ same place.
 did we decide?", lifted from the `## Decision` section — skipping the sub-headings
 and bolded pseudo-labels that decision sections tend to open with.
 
+**Diffs decisions, not lines.** Because the fields are parsed, two revisions can
+be compared on what changed *about the decision* — a status, a supersession, the
+decision sentence — leaving re-wrapped paragraphs and typo fixes as a single
+collapsed line. See [`diff`](#diff--what-changed-about-the-decisions).
+
 **Builds the citation graph.** Cross-references between records become a graph,
 so `adr-lens map` can lead with the most-cited decisions. In a corpus of ninety
 records, the handful everything else cites is the reading list.
@@ -229,6 +234,54 @@ the right.
 | `e` | open in `$EDITOR` |
 | `?` | key help |
 | `q` | quit |
+
+### `diff` — what changed about the decisions
+
+A line diff of an ADR is painful: change one word, re-wrap the paragraph, and
+twelve lines light up. This compares the *decisions* — status, decision sentence,
+relations, sections — so re-wrapping a paragraph shows nothing and a superseded
+record shows as one line.
+
+```
+main → HEAD
+
+ADR-0004  Hashed invoice id
+  Status    Accepted → Superseded by ADR-0009
+  Decision  unchanged
+  Renamed   0004-hashed-invoice-id.md → 0004-invoice-identity.md
+
+ADR-0009  Single-store idempotency gate                                  NEW
+  Status    Accepted
+  Decision  buildInvoiceId(tenantId, customerId, periodId?) produces a
+            period-independent composite id in the store's own convention.
+  Relations supersedes ADR-0004
+
+ADR-0002  Idempotent batch settlement
+  1 section reworded
+```
+
+```sh
+adr-lens diff                    # main..HEAD
+adr-lens diff main..             # against the working tree, uncommitted included
+adr-lens diff origin/main...     # from where the branch diverged, as a PR shows it
+adr-lens diff v1.0..v2.0         # any two revisions
+adr-lens diff --json             # for CI
+```
+
+Records are matched by number first and filename as a tiebreak, so a rename plus
+an edit reads as one changed record rather than a deletion and an addition. Every
+change is then weighted:
+
+| weight | what earns it |
+| --- | --- |
+| significant | status moved, decision sentence changed, a supersession gained or lost, a section removed |
+| notable | renamed, renumbered, retitled, a section added, status prose changed under an unchanged status |
+| minor | reworded prose, date, author |
+
+A record whose changes are all minor collapses to a single line. A record
+superseded by *another* record's edit is reported too, since its standing changed
+without its file being touched. Exit code is zero unless git could not answer —
+an ADR changing is not a build failure.
 
 ### `lint` — audit
 

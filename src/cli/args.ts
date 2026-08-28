@@ -53,7 +53,24 @@ const STATUSES: readonly Status[] = [
 
 const SORTS: readonly SortKey[] = ['number', 'influence', 'date', 'title', 'length'];
 
-const KNOWN_COMMANDS = new Set(['list', 'show', 'lint', 'map', 'browse', 'search', 'web', 'help']);
+const KNOWN_COMMANDS = new Set([
+  'list',
+  'show',
+  'lint',
+  'map',
+  'browse',
+  'search',
+  'web',
+  'diff',
+  'help',
+]);
+
+/**
+ * Commands whose first operand is never a path. `show 0002-thing.md` and
+ * `diff origin/main..HEAD` both contain a slash or a dot, and neither is a
+ * directory to search.
+ */
+const OPERAND_IS_NOT_A_PATH = new Set(['show', 'diff']);
 
 export class ArgError extends Error {}
 
@@ -219,7 +236,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (flags.serve) flags.watch = true;
 
   // A bare path as the first operand is a natural way to point the tool at a repo.
-  if (!rootSet && command !== 'show' && operands.length > 0 && looksLikePath(operands[0]!)) {
+  if (
+    !rootSet &&
+    !OPERAND_IS_NOT_A_PATH.has(command ?? 'list') &&
+    operands.length > 0 &&
+    looksLikePath(operands[0]!)
+  ) {
     flags.root = operands.shift()!;
   }
 
