@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { renderDiff } from '../src/commands/diff.ts';
 import { buildCorpus } from '../src/core/corpus.ts';
 import { type Change, type CorpusDiff, diffCorpora, type RecordDiff } from '../src/core/diff.ts';
 import { parseAdr } from '../src/core/parse.ts';
+import { stripAnsi } from '../src/render/inline.ts';
 
 interface AdrParts {
   status?: string;
@@ -276,6 +278,54 @@ describe('what counts as a change', () => {
     ]);
 
     expect(fields(record(diffCorpora(base, head), 4))).not.toContain('wording');
+  });
+});
+
+describe('rendering', () => {
+  const range = { base: 'main', head: 'HEAD', baseLabel: 'main', headLabel: 'HEAD' };
+  const show = (diff: CorpusDiff): string =>
+    stripAnsi(renderDiff(diff, range, { width: 80 }).join('\n'));
+
+  it('names the record that superseded one left untouched by the change', () => {
+    // The edge is the entire finding here: this record's own file did not move,
+    // so there is no status line to fold it into.
+    const base = side(['0005-retries.md', adr('5', 'Retry conflicting writes')]);
+    const head = side(
+      ['0005-retries.md', adr('5', 'Retry conflicting writes')],
+      [
+        '0014-partitioned-writes.md',
+        adr('14', 'Conflict-free settlement writes', {
+          status: 'Accepted. Supersedes [ADR-0005](0005-retries.md).',
+        }),
+      ],
+    );
+
+    expect(show(diffCorpora(base, head))).toContain('now superseded by ADR-0014');
+  });
+
+  it('folds the edge into the status line when the record says so itself', () => {
+    const base = side(
+      ['0004-hashed-invoice-id.md', adr('4', 'Hashed invoice id')],
+      ['0009-gate.md', adr('9', 'Single-store idempotency gate')],
+    );
+    const head = side(
+      [
+        '0004-hashed-invoice-id.md',
+        adr('4', 'Hashed invoice id', {
+          status: 'Superseded by [ADR-0009](0009-gate.md)',
+        }),
+      ],
+      ['0009-gate.md', adr('9', 'Single-store idempotency gate')],
+    );
+
+    const output = show(diffCorpora(base, head));
+    expect(output).toContain('Accepted → Superseded by ADR-0009');
+    expect(output).not.toContain('now superseded by ADR-0009');
+  });
+
+  it('says so plainly when nothing changed', () => {
+    const corpus = side(['0002-settlement.md', adr('2', 'Idempotent batch settlement')]);
+    expect(show(diffCorpora(corpus, corpus))).toContain('No decision records changed');
   });
 });
 

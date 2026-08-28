@@ -105,8 +105,11 @@ function renderBody(record: RecordDiff, width: number): string[] {
   const changes = [...record.changes].sort((a, b) => FIELD_ORDER[a.field] - FIELD_ORDER[b.field]);
 
   // The record went superseded *and* gained the edge saying by what. One line
-  // carries both, so the edge is not repeated on the relations line below.
-  const supersededBy = closingEdge(changes);
+  // carries both, so the edge is not repeated on the relations line below — but
+  // only when there is a status line to carry it. A record superseded by another
+  // record's edit never changes its own status text, and the edge is the whole
+  // finding: absorbing it into a line that is not printed would lose it.
+  const supersededBy = changes.some(isSupersessionStatus) ? closingEdge(changes) : null;
 
   for (const change of changes) {
     lines.push(...renderChange(change, supersededBy, width));
@@ -216,6 +219,13 @@ function renderChange(
         ),
       ];
   }
+}
+
+/** A status line that will render the move into supersession, and so can carry the edge. */
+function isSupersessionStatus(change: Change): boolean {
+  return (
+    change.field === 'status' && change.before !== change.after && change.after === 'superseded'
+  );
 }
 
 /**
