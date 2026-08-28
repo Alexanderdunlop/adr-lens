@@ -38,6 +38,8 @@ export interface Flags {
   watch: boolean;
   /** Serve the page on localhost and push a reload after each rebuild. */
   serve: boolean;
+  /** Render the comparison as a web page instead of terminal output (diff). */
+  web: boolean;
   /** Port for `--serve`. A free one is chosen when this is not set. */
   port?: number;
 }
@@ -94,6 +96,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     open: false,
     watch: false,
     serve: false,
+    web: false,
   };
 
   const operands: string[] = [];
@@ -201,6 +204,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case '--open':
         flags.open = true;
+        break;
+      case '--web':
+      case '--html':
+        flags.web = true;
         break;
       case '-W':
       case '--watch':

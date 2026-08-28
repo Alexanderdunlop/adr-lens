@@ -57,6 +57,13 @@ export function defaultOutputName(root: string): string {
   return `${inferScope(root)}-decisions.html`;
 }
 
+/** Default output filename for a comparison, e.g. `billing-service-review.html`. */
+export function defaultDiffOutputName(root: string): string {
+  return `${inferScope(root)}-review.html`;
+}
+
+export { inferScope };
+
 /* ----------------------------------------------------------------- watching */
 
 export interface WatchHandle {

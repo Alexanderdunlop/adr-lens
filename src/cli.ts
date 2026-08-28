@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { relative } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { ArgError, type Flags, parseArgs } from './cli/args.ts';
 import { renderHelp } from './cli/help.ts';
 import { createContext, filtered, type GlobalFlags, resolveOne } from './commands/context.ts';
@@ -10,8 +10,16 @@ import { mapToJson, renderMap } from './commands/map.ts';
 import type { ServeHandle } from './commands/serve.ts';
 import { renderShow } from './commands/show.ts';
 import { defaultOutputName, watchSite, writeSite } from './commands/web.ts';
-import { diffCorpora } from './core/diff.ts';
-import { GitError, knownDirs, loadCorpusAtRev, openRepo, resolveRange } from './core/git.ts';
+import type { Corpus } from './core/corpus.ts';
+import { type CorpusDiff, diffCorpora } from './core/diff.ts';
+import {
+  GitError,
+  knownDirs,
+  loadCorpusAtRev,
+  openRepo,
+  type RevRange,
+  resolveRange,
+} from './core/git.ts';
 import { search } from './core/search.ts';
 import type { AdrNode } from './core/types.ts';
 import { theme } from './render/theme.ts';
@@ -226,6 +234,8 @@ async function runDiff(context: Context, operands: string[], flags: Flags): Prom
       return 0;
     }
 
+    if (flags.web) return writeDiffPage(diff, base, head, range, flags, context.now);
+
     console.log(renderDiff(diff, range, { width: context.width }).join('\n'));
     return 0;
   } catch (error) {
@@ -233,6 +243,43 @@ async function runDiff(context: Context, operands: string[], flags: Flags): Prom
     console.error(theme.error(error.message));
     return 1;
   }
+}
+
+/**
+ * The comparison as a page rather than a column of text: the two renderings of a
+ * record side by side, which is the only way to review a decision as the document
+ * it will be rather than as the markdown it is written in.
+ */
+async function writeDiffPage(
+  diff: CorpusDiff,
+  base: Corpus,
+  head: Corpus,
+  range: RevRange,
+  flags: Flags,
+  now: Date,
+): Promise<number> {
+  const { writeFile } = await import('node:fs/promises');
+  const { renderDiffPage } = await import('./web/diff-page.ts');
+  const { defaultDiffOutputName, inferScope } = await import('./commands/web.ts');
+
+  const html = renderDiffPage(diff, base, head, range, {
+    scope: flags.scope ?? inferScope(flags.root),
+    now,
+  });
+
+  const out = resolve(flags.out ?? defaultDiffOutputName(flags.root));
+  await writeFile(out, html, 'utf8');
+
+  console.log(
+    `${theme.ok('✓')} ${relative(process.cwd(), out)}  ${theme.dim(
+      `${diff.records.length} changed · ${Math.round(Buffer.byteLength(html, 'utf8') / 1024)} kB`,
+    )}`,
+  );
+
+  if (flags.open) await openInBrowser(out);
+  else console.log(theme.dim(`  open it with: open ${relative(process.cwd(), out)}`));
+
+  return 0;
 }
 
 function runMap(context: Context, flags: Flags): number {
